@@ -1,0 +1,36 @@
+<% if search_term.present? %>
+  <div class="row mt-4">
+    <div class="col-12">
+      <h3>Search Results for "<%= search_term %>"</h3>
+      <hr>
+    </div>
+    
+    <% if meals.present? %>
+      <% meals.each do |meal| %>
+        <div class="col-md-4 mb-4">
+          <div class="card meal-card h-100">
+            <img src="<%= meal[:thumbnail] %>" class="card-img-top" alt="<%= meal[:name] %>">
+            <div class="card-body">
+              <h5 class="card-title"><%= meal[:name] %></h5>
+              <p class="card-text">
+                <strong>Category:</strong> <%= meal[:category] || 'N/A' %><br>
+                <strong>Area:</strong> <%= meal[:area] || 'N/A' %>
+              </p>
+              <button type="button" 
+                      class="btn btn-primary view-more-btn" 
+                      data-meal-id="<%= meal[:id] %>">
+                View More
+              </button>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    <% else %>
+      <div class="col-12">
+        <div class="alert alert-info">
+          No meals found for "<%= search_term %>". Please try another search term.
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% end %>

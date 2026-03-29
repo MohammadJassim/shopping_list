@@ -1,0 +1,46 @@
+<div class="row mb-4">
+  <div class="col-md-8 mx-auto">
+    <div class="card">
+      <div class="card-body">
+        <h1 class="card-title text-center mb-4">Search for Meals</h1>
+        <%= form_tag meals_path, method: :get, 
+            data: { turbo_frame: "search-results", turbo_action: "advance" },
+            id: "search-form" do %>
+          <div class="input-group">
+            <%= text_field_tag :search, params[:search], 
+                class: "form-control form-control-lg", 
+                placeholder: "Enter a meal name (e.g., chicken, pasta, cake)...",
+                autofocus: true %>
+            <%= submit_tag "Search", class: "btn btn-primary btn-lg", name: nil %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%= turbo_frame_tag "search-results" do %>
+  <%= render "results", meals: @meals, search_term: @search_term %>
+<% end %>
+
+<!-- Modal -->
+<div class="modal fade" id="mealModal" tabindex="-1" aria-labelledby="mealModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mealModalLabel">Meal Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

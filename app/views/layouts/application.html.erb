@@ -4,9 +4,13 @@
     <title>ShoppingListApp</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <%= csrf_meta_tags %>
-    <%= csp_meta_tag %>    
+    <%= csp_meta_tag %>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
@@ -18,6 +22,19 @@
         transform: translateY(-5px);
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
       }
+      
+      .shopping-list-badge {
+        transition: all 0.2s;
+      }
+      
+      .shopping-list-item {
+        transition: all 0.2s;
+      }
+      
+      .shopping-list-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+      }
     </style>
   </head>
 
@@ -25,6 +42,15 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
       <div class="container">
         <%= link_to "Meal Search App", root_path, class: "navbar-brand" %>
+        
+        <div class="ms-auto">
+          <button type="button" class="btn btn-outline-light position-relative" data-bs-toggle="offcanvas" data-bs-target="#shoppingListOffcanvas">
+            <i class="bi bi-cart"></i> Shopping List
+            <span id="shoppingListCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">
+              0
+            </span>
+          </button>
+        </div>
       </div>
     </nav>
 
@@ -32,19 +58,232 @@
       <%= yield %>
     </div>
     
+    <!-- Shopping List Offcanvas -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="shoppingListOffcanvas" aria-labelledby="shoppingListOffcanvasLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="shoppingListOffcanvasLabel">
+          <i class="bi bi-cart"></i> My Shopping List
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body">
+        <div id="shoppingListContainer">
+          <div class="text-center py-5">
+            <i class="bi bi-cart fs-1 text-muted"></i>
+            <p class="text-muted mt-3">Your shopping list is empty</p>
+            <p class="small text-muted">Add ingredients from recipes to get started!</p>
+          </div>
+        </div>
+        <button id="clearShoppingListBtn" class="btn btn-danger w-100 mt-3" style="display: none;">
+          <i class="bi bi-trash"></i> Clear All
+        </button>
+      </div>
+    </div>
+    
     <script>
-      // Pure JavaScript for modals
+      // Shopping List Management
+      let shoppingList = [];
+      
+      // Load shopping list from localStorage
+      function loadShoppingList() {
+        const saved = localStorage.getItem('shoppingList');
+        if (saved) {
+          shoppingList = JSON.parse(saved);
+          console.log(`Loaded ${shoppingList.length} items from localStorage`);
+        }
+        updateShoppingListUI();
+      }
+      
+      // Save shopping list to localStorage
+      function saveShoppingList() {
+        localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
+        updateShoppingListUI();
+        showNotification('Shopping list updated!');
+      }
+      
+      // Add ingredients to shopping list
+      function addToShoppingList(ingredients, recipeName) {
+        console.log(`Adding ${ingredients.length} ingredients from ${recipeName}`);
+        
+        ingredients.forEach(ingredient => {
+          // Check if ingredient already exists
+          const existingIndex = shoppingList.findIndex(item => 
+            item.ingredient.toLowerCase() === ingredient.ingredient.toLowerCase()
+          );
+          
+          if (existingIndex !== -1) {
+            // Aggregate measures
+            const existingItem = shoppingList[existingIndex];
+            existingItem.measure = aggregateMeasures(existingItem.measure, ingredient.measure);
+            existingItem.recipes.push(recipeName);
+            existingItem.updatedAt = new Date().toISOString();
+          } else {
+            // Add new ingredient
+            shoppingList.push({
+              id: Date.now() + '_' + ingredient.ingredient.replace(/\s/g, '_'),
+              ingredient: ingredient.ingredient,
+              measure: ingredient.measure,
+              recipes: [recipeName],
+              addedAt: new Date().toISOString()
+            });
+          }
+        });
+        
+        saveShoppingList();
+        showNotification(`Added ${ingredients.length} items to shopping list!`);
+      }
+      
+      // Aggregate measures (simple version)
+      function aggregateMeasures(measure1, measure2) {
+        // Extract numbers from measures
+        const num1 = parseFloat(measure1) || 0;
+        const num2 = parseFloat(measure2) || 0;
+        
+        if (num1 > 0 && num2 > 0) {
+          const total = num1 + num2;
+          const unit = measure1.replace(/[0-9.\s]/g, '').trim();
+          return `${total} ${unit}`;
+        }
+        
+        // If can't aggregate, combine them
+        return `${measure1}, ${measure2}`;
+      }
+      
+      // Remove item from shopping list
+      function removeFromShoppingList(itemId) {
+        shoppingList = shoppingList.filter(item => item.id !== itemId);
+        saveShoppingList();
+        showNotification('Item removed from shopping list');
+      }
+      
+      // Clear entire shopping list
+      function clearShoppingList() {
+        if (confirm('Are you sure you want to clear your entire shopping list?')) {
+          shoppingList = [];
+          saveShoppingList();
+          showNotification('Shopping list cleared');
+        }
+      }
+      
+      // Update shopping list UI
+      function updateShoppingListUI() {
+        const container = document.getElementById('shoppingListContainer');
+        const clearBtn = document.getElementById('clearShoppingListBtn');
+        const countBadge = document.getElementById('shoppingListCount');
+        
+        if (!container) return;
+        
+        if (shoppingList.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-5">
+              <i class="bi bi-cart fs-1 text-muted"></i>
+              <p class="text-muted mt-3">Your shopping list is empty</p>
+              <p class="small text-muted">Add ingredients from recipes to get started!</p>
+            </div>
+          `;
+          if (clearBtn) clearBtn.style.display = 'none';
+          if (countBadge) countBadge.style.display = 'none';
+          return;
+        }
+        
+        // Group by ingredient name
+        const grouped = {};
+        shoppingList.forEach(item => {
+          if (!grouped[item.ingredient]) {
+            grouped[item.ingredient] = [];
+          }
+          grouped[item.ingredient].push(item);
+        });
+        
+        let html = '<div class="list-group">';
+        Object.entries(grouped).forEach(([ingredient, items]) => {
+          const measures = items.map(item => item.measure).join(', ');
+          const recipes = [...new Set(items.flatMap(item => item.recipes))].join(', ');
+          
+          html += `
+            <div class="list-group-item shopping-list-item">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                  <strong>${escapeHtml(ingredient)}</strong>
+                  <br>
+                  <small class="text-muted">${escapeHtml(measures)}</small>
+                  <br>
+                  <small class="text-muted">
+                    <i class="bi bi-bookmark"></i> ${escapeHtml(recipes)}
+                  </small>
+                </div>
+                <button class="btn btn-sm btn-outline-danger remove-item-btn" data-item-id="${items[0].id}">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+        if (clearBtn) clearBtn.style.display = 'block';
+        if (countBadge) {
+          countBadge.textContent = shoppingList.length;
+          countBadge.style.display = 'inline-block';
+        }
+        
+        // Add event listeners to remove buttons
+        document.querySelectorAll('.remove-item-btn').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const itemId = this.getAttribute('data-item-id');
+            removeFromShoppingList(itemId);
+          });
+        });
+      }
+      
+      // Show notification
+      function showNotification(message) {
+        // Check if notification container exists, if not create it
+        let notificationContainer = document.getElementById('notificationContainer');
+        if (!notificationContainer) {
+          notificationContainer = document.createElement('div');
+          notificationContainer.id = 'notificationContainer';
+          notificationContainer.className = 'position-fixed bottom-0 end-0 p-3';
+          notificationContainer.style.zIndex = '9999';
+          document.body.appendChild(notificationContainer);
+        }
+        
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-success alert-dismissible fade show notification';
+        notification.innerHTML = `
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        notificationContainer.appendChild(notification);
+        
+        setTimeout(() => {
+          notification.remove();
+        }, 3000);
+      }
+      
+      // Helper function to escape HTML
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+      
+      // Modal and shopping list integration
       document.addEventListener('click', function(e) {
-        const button = e.target.closest('.view-more-btn');
-        if (button) {
+        // Handle View More button
+        const viewMoreBtn = e.target.closest('.view-more-btn');
+        if (viewMoreBtn) {
           e.preventDefault();
-          const mealId = button.getAttribute('data-meal-id');
+          const mealId = viewMoreBtn.getAttribute('data-meal-id');
           console.log("View More clicked for meal:", mealId);
           
           const modalElement = document.getElementById('mealModal');
           const modalBody = modalElement.querySelector('.modal-body');
+          const modalTitle = modalElement.querySelector('.modal-title');
           
-          // Show loading
+          modalTitle.textContent = 'Loading...';
           modalBody.innerHTML = `
             <div class="text-center py-5">
               <div class="spinner-border text-primary" role="status">
@@ -54,14 +293,16 @@
             </div>
           `;
           
-          // Fetch meal details
           fetch(`/meals/${mealId}`)
             .then(response => response.text())
             .then(html => {
               modalBody.innerHTML = html;
-              // Show modal
+              modalTitle.textContent = 'Meal Details';
               const modal = new bootstrap.Modal(modalElement);
               modal.show();
+              
+              // Attach shopping list event listeners after modal content loads
+              attachShoppingListEventListeners();
             })
             .catch(error => {
               console.error("Error loading meal:", error);
@@ -72,6 +313,71 @@
               `;
             });
         }
+      });
+      
+      // Attach shopping list event listeners to modal content
+      function attachShoppingListEventListeners() {
+        // Add All Ingredients button
+        const addAllBtn = document.querySelector('.add-all-ingredients-btn');
+        if (addAllBtn) {
+          // Remove existing listener to avoid duplicates
+          const newAddAllBtn = addAllBtn.cloneNode(true);
+          addAllBtn.parentNode.replaceChild(newAddAllBtn, addAllBtn);
+          
+          newAddAllBtn.addEventListener('click', function() {
+            const recipeElement = this.closest('[data-recipe-id]');
+            const recipeName = recipeElement.getAttribute('data-recipe-name');
+            const ingredients = [];
+            
+            document.querySelectorAll('.ingredients-list li').forEach(li => {
+              const span = li.querySelector('span');
+              const ingredientText = span ? span.textContent : '';
+              const match = ingredientText.match(/^(.+?)\s+(.+)$/);
+              if (match) {
+                ingredients.push({
+                  ingredient: match[2],
+                  measure: match[1]
+                });
+              }
+            });
+            
+            if (ingredients.length > 0) {
+              addToShoppingList(ingredients, recipeName);
+            }
+          });
+        }
+        
+        // Individual Add Ingredient buttons
+        document.querySelectorAll('.add-ingredient-btn').forEach(btn => {
+          // Remove existing listener to avoid duplicates
+          const newBtn = btn.cloneNode(true);
+          btn.parentNode.replaceChild(newBtn, btn);
+          
+          newBtn.addEventListener('click', function() {
+            const ingredientName = this.getAttribute('data-ingredient-name');
+            const ingredientMeasure = this.getAttribute('data-ingredient-measure');
+            const recipeElement = this.closest('[data-recipe-id]');
+            const recipeName = recipeElement.getAttribute('data-recipe-name');
+            
+            addToShoppingList([{
+              ingredient: ingredientName,
+              measure: ingredientMeasure
+            }], recipeName);
+          });
+        });
+      }
+      
+      // Clear shopping list button
+      document.getElementById('clearShoppingListBtn')?.addEventListener('click', clearShoppingList);
+      
+      // Initialize on page load
+      document.addEventListener('DOMContentLoaded', function() {
+        loadShoppingList();
+      });
+      
+      // Reload shopping list when offcanvas is opened (to refresh view)
+      document.getElementById('shoppingListOffcanvas')?.addEventListener('shown.bs.offcanvas', function() {
+        updateShoppingListUI();
       });
     </script>
   </body>

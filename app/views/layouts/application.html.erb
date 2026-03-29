@@ -41,9 +41,13 @@
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
       <div class="container">
-        <%= link_to "Meal Search App", root_path, class: "navbar-brand" %>
+        <%= link_to "Shopping List App", root_path, class: "navbar-brand" %>
         
         <div class="ms-auto">
+          <button type="button" id="surpriseMeBtn" class="btn btn-outline-warning">
+            <i class="bi bi-stars"></i> Surprise Me!
+          </button>
+                  
           <button type="button" class="btn btn-outline-light position-relative" data-bs-toggle="offcanvas" data-bs-target="#shoppingListOffcanvas">
             <i class="bi bi-cart"></i> Shopping List
             <span id="shoppingListCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">
@@ -81,7 +85,7 @@
     </div>
     
     <script>
-      // Shopping List Management
+      // Shopping List
       let shoppingList = [];
       
       // Load shopping list from localStorage
@@ -379,6 +383,150 @@
       document.getElementById('shoppingListOffcanvas')?.addEventListener('shown.bs.offcanvas', function() {
         updateShoppingListUI();
       });
+
+
+      // Surprise Me Button Handler
+      document.getElementById('surpriseMeBtn')?.addEventListener('click', function() {
+        console.log("Surprise Me clicked - fetching random meal");
+        
+        const modalElement = document.getElementById('mealModal');
+        const modalBody = modalElement.querySelector('.modal-body');
+        const modalTitle = modalElement.querySelector('.modal-title');
+        
+        // Show loading state
+        modalTitle.textContent = 'Surprising you...';
+        modalBody.innerHTML = `
+          <div class="text-center py-5">
+            <div class="spinner-border text-warning" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Searching for a surprise ...</p>
+            <p class="text-muted small">This might take a moment...</p>
+          </div>
+        `;
+        
+        // Fetch random meal from API
+        fetch('https://www.themealdb.com/api/json/v1/1/random.php')
+          .then(response => response.json())
+          .then(data => {
+            if (data.meals && data.meals[0]) {
+              const apiMeal = data.meals[0];
+              
+              // Format ingredients
+              const ingredients = [];
+              for (let i = 1; i <= 20; i++) {
+                const ingredient = apiMeal[`strIngredient${i}`];
+                const measure = apiMeal[`strMeasure${i}`];
+                if (ingredient && ingredient.trim()) {
+                  ingredients.push({
+                    ingredient: ingredient.trim(),
+                    measure: measure ? measure.trim() : "to taste"
+                  });
+                }
+              }
+              
+              const meal = {
+                id: apiMeal.idMeal,
+                name: apiMeal.strMeal,
+                category: apiMeal.strCategory,
+                area: apiMeal.strArea,
+                thumbnail: apiMeal.strMealThumb,
+                instructions: apiMeal.strInstructions,
+                tags: apiMeal.strTags,
+                youtube: apiMeal.strYoutube,
+                source: apiMeal.strSource,
+                ingredients: ingredients
+              };
+              
+              // Render the meal details
+              modalBody.innerHTML = renderMealDetailsHTML(meal);
+              modalTitle.textContent = 'Surprise Meal!';
+              
+              // Attach shopping list event listeners to the new content
+              attachShoppingListEventListeners();
+              
+              // Show the modal
+              const modal = new bootstrap.Modal(modalElement);
+              modal.show();
+            } else {
+              throw new Error('No meal data received');
+            }
+          })
+          .catch(error => {
+            console.error("Error fetching random meal:", error);
+            modalBody.innerHTML = `
+              <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Oops!</strong> Failed to load a surprise meal.<br>
+                Please check your internet connection and try again.
+              </div>
+            `;
+            modalTitle.textContent = 'Error Loading Meal';
+            
+            // Still show the modal so user sees the error
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+            
+            // Auto-hide error modal after 3 seconds
+            setTimeout(() => {
+              modal.hide();
+            }, 3000);
+          });
+      });
+
+      // Function to render meal details HTML (add this if you haven't already)
+      function renderMealDetailsHTML(meal) {
+        let ingredientsHtml = '';
+        if (meal.ingredients && meal.ingredients.length > 0) {
+          meal.ingredients.forEach(ing => {
+            ingredientsHtml += `
+              <li class="mb-2 p-2 bg-light rounded d-flex justify-content-between align-items-center">
+                <span>${escapeHtml(ing.measure)} ${escapeHtml(ing.ingredient)}</span>
+                <button type="button" 
+                        class="btn btn-sm btn-outline-success add-ingredient-btn"
+                        data-ingredient-name="${escapeHtml(ing.ingredient)}"
+                        data-ingredient-measure="${escapeHtml(ing.measure)}">
+                  <i class="bi bi-cart-plus"></i> Add
+                </button>
+              </li>
+            `;
+          });
+        } else {
+          ingredientsHtml = '<li class="text-muted">No ingredients listed</li>';
+        }
+        
+        return `
+          <div class="row" data-recipe-id="${meal.id}" data-recipe-name="${escapeHtml(meal.name)}">
+            <div class="col-md-5">
+              <img src="${meal.thumbnail}" class="img-fluid rounded" alt="${escapeHtml(meal.name)}">
+            </div>
+            <div class="col-md-7">
+              <h4>${escapeHtml(meal.name)}</h4>
+              <p><strong>Category:</strong> ${meal.category || 'N/A'}</p>
+              <p><strong>Area:</strong> ${meal.area || 'N/A'}</p>
+              ${meal.tags ? `<p><strong>Tags:</strong> ${escapeHtml(meal.tags)}</p>` : ''}
+              
+              <h5 class="mt-3">Ingredients:</h5>
+              <ul class="ingredients-list list-unstyled">
+                ${ingredientsHtml}
+              </ul>
+              
+              <button class="btn btn-success mt-3 w-100 add-all-ingredients-btn">
+                <i class="bi bi-cart-plus"></i> Add All Ingredients to Shopping List
+              </button>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-12">
+              <h5>Instructions:</h5>
+              <p>${meal.instructions ? escapeHtml(meal.instructions) : 'No instructions available'}</p>
+              ${meal.youtube ? `<a href="${meal.youtube}" target="_blank" class="btn btn-danger mt-2">Watch on YouTube</a>` : ''}
+              ${meal.source ? `<a href="${meal.source}" target="_blank" class="btn btn-secondary mt-2 ms-2">View Source</a>` : ''}
+            </div>
+          </div>
+        `;
+      }      
+
     </script>
   </body>
 </html>

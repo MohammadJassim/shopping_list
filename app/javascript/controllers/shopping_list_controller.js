@@ -1,142 +1,167 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["count", "sidebar"]
+  static targets = ["count"]
   
   connect() {
-    console.log("✅ Shopping list controller connected")
-    this.shoppingList = []
-    this.loadFromLocalStorage()
-    this.updateUI()
+    console.log("Shopping list controller connected")
+    this.loadShoppingList()
+    this.updateCount()
+    this.renderCurrentPage()
   }
   
-  loadFromLocalStorage() {
+  loadShoppingList() {
     const saved = localStorage.getItem('shoppingList')
-    if (saved) {
-      this.shoppingList = JSON.parse(saved)
-      console.log(`Loaded ${this.shoppingList.length} items`)
-    }
+    this.shoppingList = saved ? JSON.parse(saved) : []
+    console.log(`Loaded ${this.shoppingList.length} items from localStorage`)
   }
   
-  saveToLocalStorage() {
+  saveShoppingList() {
     localStorage.setItem('shoppingList', JSON.stringify(this.shoppingList))
-    this.updateUI()
+    this.updateCount()
+    this.renderCurrentPage()
   }
   
   addIngredients(event) {
+    console.log("Adding ingredients...")
     const ingredients = JSON.parse(event.currentTarget.dataset.ingredients)
     const recipeName = event.currentTarget.dataset.recipeName
     
-    console.log(`Adding ${ingredients.length} ingredients from ${recipeName}`)
-    
-    ingredients.forEach(ingredient => {
-      this.shoppingList.push({
-        id: `${Date.now()}_${ingredient.ingredient.replace(/\s/g, '_')}`,
-        ingredient: ingredient.ingredient,
-        measure: ingredient.measure,
-        recipeName: recipeName,
-        addedAt: new Date().toISOString()
-      })
+    ingredients.forEach(newIngredient => {
+      const normalizedName = newIngredient.ingredient.toLowerCase().trim()
+      
+      const existing = this.shoppingList.find(item => 
+        item.ingredient.toLowerCase().trim() === normalizedName
+      )
+      
+      if (existing) {
+        // Try to aggregate measures numerically
+        const aggregated = this.aggregateMeasures(existing.measure, newIngredient.measure)
+        existing.measure = aggregated
+        
+        if (!existing.recipes.includes(recipeName)) {
+          existing.recipes.push(recipeName)
+        }
+      } else {
+        this.shoppingList.push({
+          id: Date.now(),
+          ingredient: newIngredient.ingredient,
+          measure: newIngredient.measure,
+          recipes: [recipeName]
+        })
+      }
     })
     
-    this.saveToLocalStorage()
-    this.showNotification(`Added ${ingredients.length} items!`)
+    this.saveShoppingList()
+    this.showNotification(`Added ${ingredients.length} items to shopping list!`)
+  }
+  
+  aggregateMeasures(measure1, measure2) {
+    // Extract numbers from measures
+    const num1 = parseFloat(measure1)
+    const num2 = parseFloat(measure2)
+    
+    // If both are numbers, add them
+    if (!isNaN(num1) && !isNaN(num2)) {
+      const unit = measure1.replace(/[\d.\s]/g, '').trim()
+      const total = num1 + num2
+      return `${total} ${unit}`
+    }
+    
+    // If can't aggregate mathematically, combine with comma
+    return `${measure1}, ${measure2}`
   }
   
   removeItem(event) {
-    const itemId = event.currentTarget.dataset.itemId
+    const itemId = parseInt(event.currentTarget.dataset.itemId)
     this.shoppingList = this.shoppingList.filter(item => item.id !== itemId)
-    this.saveToLocalStorage()
-    this.showNotification('Item removed')
+    this.saveShoppingList()
+    this.showNotification('Item removed from shopping list')
   }
   
   clearList() {
-    if (confirm('Clear shopping list?')) {
+    if (confirm('Clear your entire shopping list?')) {
       this.shoppingList = []
-      this.saveToLocalStorage()
-      this.showNotification('List cleared')
+      this.saveShoppingList()
+      this.showNotification('Shopping list cleared')
     }
   }
   
-  updateUI() {
-    if (this.hasCountTarget) {
-      this.countTarget.textContent = this.shoppingList.length
-      this.countTarget.style.display = this.shoppingList.length > 0 ? 'inline-block' : 'none'
-    }
+  updateCount() {
+    const count = this.shoppingList?.length || 0
+    console.log(`Updating count to: ${count}`)
     
-    if (this.hasSidebarTarget) {
-      this.renderSidebar()
+    // Update all possible count elements
+    const countElements = document.querySelectorAll('#shopping_list_count, [data-shopping-list-target="count"]')
+    countElements.forEach(element => {
+      element.textContent = count
+      element.style.display = count > 0 ? 'inline-block' : 'none'
+    })
+  }
+  
+  renderCurrentPage() {
+    // Check if we're on the shopping list page
+    const container = document.getElementById('shoppingListContainer')
+    if (container) {
+      this.renderShoppingList(container)
     }
   }
   
-  renderSidebar() {
-    if (this.shoppingList.length === 0) {
-      this.sidebarTarget.innerHTML = `
-        <div class="card mt-3">
-          <div class="card-header bg-success text-white">
-            <h5 class="mb-0">Shopping List</h5>
-          </div>
-          <div class="card-body text-center">
-            <i class="bi bi-cart fs-1 text-muted"></i>
-            <p class="text-muted mt-2 mb-0">Your list is empty</p>
-          </div>
+  renderShoppingList(container) {
+    console.log("Rendering shopping list, items:", this.shoppingList?.length)
+    
+    if (!this.shoppingList || this.shoppingList.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-5">
+          <i class="bi bi-cart fs-1 text-muted"></i>
+          <p class="text-muted mt-3">Your shopping list is empty</p>
+          <p class="small text-muted">Add ingredients from recipes to get started!</p>
         </div>
       `
       return
     }
     
-    const recent = this.shoppingList.slice(0, 5)
-    let html = `
-      <div class="card mt-3">
-        <div class="card-header bg-success text-white d-flex justify-content-between">
-          <h5 class="mb-0">Shopping List (${this.shoppingList.length})</h5>
-          <button class="btn btn-sm btn-outline-light" data-action="click->shopping-list#clearList">
-            Clear
-          </button>
-        </div>
-        <div class="list-group list-group-flush">
-    `
-    
-    recent.forEach(item => {
+    let html = '<div class="list-group">'
+    this.shoppingList.forEach(item => {
       html += `
-        <div class="list-group-item d-flex justify-content-between">
-          <div>
-            <strong>${this.escapeHtml(item.ingredient)}</strong>
-            <small class="text-muted d-block">${this.escapeHtml(item.measure)}</small>
+        <div class="list-group-item">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>${this.escapeHtml(item.ingredient)}</strong>
+              <br>
+              <small class="text-muted">${this.escapeHtml(item.measure)}</small>
+              <br>
+              <small class="text-muted">From: ${this.escapeHtml(item.recipes.join(', '))}</small>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" 
+                    data-action="click->shopping-list#removeItem"
+                    data-item-id="${item.id}">
+              <i class="bi bi-trash"></i> Remove
+            </button>
           </div>
-          <button class="btn btn-sm btn-outline-danger" 
-                  data-action="click->shopping-list#removeItem"
-                  data-item-id="${item.id}">
-            ×
-          </button>
         </div>
       `
     })
+    html += '</div>'
     
-    if (this.shoppingList.length > 5) {
-      html += `<div class="list-group-item text-center text-muted">+ ${this.shoppingList.length - 5} more</div>`
-    }
-    
-    html += `
-        </div>
-        <div class="card-footer">
-          <a href="/shopping_list" class="btn btn-outline-success btn-sm w-100">View Full List</a>
-        </div>
-      </div>
-    `
-    
-    this.sidebarTarget.innerHTML = html
+    container.innerHTML = html
   }
   
   showNotification(message) {
+    // Remove existing notification
+    const existing = document.querySelector('.shopping-list-notification')
+    if (existing) existing.remove()
+    
     const notification = document.createElement('div')
-    notification.className = 'alert alert-success alert-dismissible fade show position-fixed bottom-0 end-0 m-3'
+    notification.className = 'alert alert-success alert-dismissible fade show position-fixed bottom-0 end-0 m-3 shopping-list-notification'
     notification.style.zIndex = '9999'
+    notification.style.minWidth = '250px'
     notification.innerHTML = `
-      ${message}
+      <i class="bi bi-check-circle"></i> ${message}
       <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `
     document.body.appendChild(notification)
+    
     setTimeout(() => notification.remove(), 3000)
   }
   

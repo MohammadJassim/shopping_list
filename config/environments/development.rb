@@ -1,5 +1,16 @@
 require "active_support/core_ext/integer/time"
 
+require "active_model/railtie"
+require "active_job/railtie"
+#require "active_record/railtie"
+#require "active_storage/engine"
+require "action_controller/railtie"
+#require "action_mailer/railtie"
+# require "action_mailbox/engine"  # Comment out if not needed
+# require "action_text/engine"     # Comment out if not needed
+require "action_view/railtie"
+# require "action_cable/engine"    # Comment out if not needed
+
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
@@ -7,7 +18,30 @@ Rails.application.configure do
   # it changes. This slows down response time but is perfect for development
   # since you don't have to restart the web server when you make code changes.
   config.enable_reloading = true
-  #config.assets.enabled = false
+  # Asset pipeline configuration
+  # Completely clear the precompile list
+  #config.assets.precompile = []
+  
+  # Only add CSS files
+  #config.assets.precompile = %w[ application.css ]
+
+  #config.assets.enabled = true
+  #config.assets.compile = true
+  #config.assets.debug = true
+  #config.assets.quiet = true  
+
+  # config.assets.precompile.delete_if do |asset|
+  #   asset.to_s.include?(".js") || 
+  #   asset.to_s.include?("stimulus") ||
+  #   asset.to_s.include?("turbo") ||
+  #   asset.to_s.include?("action") ||
+  #   asset.to_s.include?("active")
+  # end  
+
+  # Don't generate JavaScript assets
+  config.generators.assets = false
+  config.generators.javascripts = false
+
 
   # Do not eager load code on boot.
   config.eager_load = false
@@ -29,7 +63,8 @@ Rails.application.configure do
   else
     config.action_controller.perform_caching = false
 
-    config.cache_store = :null_store
+    #config.cache_store = :null_store
+    config.cache_store = :file_store, "tmp/cache/"
   end
 
   # Store uploaded files on the local file system (see config/storage.yml for options).

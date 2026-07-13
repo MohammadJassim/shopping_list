@@ -1,0 +1,2 @@
+<%= turbo_stream.remove "item_#{@item.id}" %>
+<%= turbo_stream.update "shopping_list_count", ShoppingList.count %>

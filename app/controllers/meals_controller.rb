@@ -7,12 +7,13 @@ class MealsController < ApplicationController
 
   def show
     @meal = MealService.get_meal_details(params[:id])
-    
-    respond_to do |format|
-      format.html { render partial: "meal_details", locals: { meal: @meal } }
-      format.json { render json: @meal }
-    end
-  end
+    render partial: "meal_details", locals: { meal: @meal }
+  end  
+
+  def random
+    @meal = MealService.random_meal
+    render partial: "meal_details", locals: { meal: @meal }
+  end  
 
   def test_stimulus
     render layout: 'application'

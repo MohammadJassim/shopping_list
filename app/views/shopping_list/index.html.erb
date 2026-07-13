@@ -1,0 +1,38 @@
+<div data-controller="shopping-list">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">My Shopping List</h4>
+      <button class="btn btn-danger btn-sm" data-action="click->shopping-list#clearList">
+        Clear All
+      </button>
+    </div>
+    <div class="card-body">
+      <div id="shoppingListContainer">
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <%= link_to "← Back to Search", root_path, class: "btn btn-secondary" %>
+  </div>
+</div>
+
+<script>
+  // Initialize shopping list display when page loads
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('shoppingListContainer')
+    if (container && window.StimulusApp) {
+      // Find the shopping list controller
+      const controllers = window.StimulusApp.controllers
+      const shoppingListController = controllers.find(c => c.context.identifier === 'shopping-list')
+      if (shoppingListController) {
+        shoppingListController.renderShoppingList(container)
+      }
+    }
+  })
+</script>

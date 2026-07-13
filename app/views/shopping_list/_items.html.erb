@@ -1,0 +1,26 @@
+<% if items.any? %>
+  <div class="list-group">
+    <% items.each do |item| %>
+      <div class="list-group-item" id="item_<%= item[:id] %>">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <strong><%= item[:ingredient] %></strong>
+            <br>
+            <small class="text-muted"><%= item[:measure] %></small>
+            <br>
+            <small>From: <%= item[:recipe_name] %></small>
+          </div>
+          <%= button_to "Remove", remove_shopping_list_index_path(id: item[:id]), 
+              method: :delete, 
+              class: "btn btn-sm btn-outline-danger",
+              form: { data: { turbo_frame: "shopping_list_items" } } %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+<% else %>
+  <div class="text-center py-5">
+    <i class="bi bi-cart fs-1 text-muted"></i>
+    <p class="text-muted mt-3">Your shopping list is empty</p>
+  </div>
+<% end %>

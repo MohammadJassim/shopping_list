@@ -1,0 +1,2 @@
+<%= turbo_stream.prepend "shopping_list_items", partial: "shopping_list/item", locals: { item: @item } %>
+<%= turbo_stream.update "shopping_list_count", ShoppingList.count %>

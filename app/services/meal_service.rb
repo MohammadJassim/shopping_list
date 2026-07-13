@@ -59,4 +59,15 @@ class MealService
       ingredients: ingredients
     }
   end
+
+  def self.random_meal
+    response = get('/random.php')
+    return nil unless response.success?
+    
+    meal = response.parsed_response['meals']&.first
+    return nil if meal.nil?
+    
+    format_meal_details(meal)
+  end
+    
 end

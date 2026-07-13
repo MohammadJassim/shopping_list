@@ -10,5 +10,13 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 0) do
+ActiveRecord::Schema[7.2].define(version: 2026_04_09_010758) do
+  create_table "shopping_list_items", force: :cascade do |t|
+    t.integer "user_id"
+    t.string "ingredient"
+    t.string "measure"
+    t.string "recipe_name"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
 end
